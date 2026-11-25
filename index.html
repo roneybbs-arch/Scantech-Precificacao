@@ -763,7 +763,7 @@
     filterCostUpdated: false,
     filterZeroOnly: false,
     filterFonte: new Set(),
-    filterConsultor: null,   // null | "acima" | "abaixo"
+    filterConsultor: null,   // null | "acima" | "abaixo" | "sem" | "com"
     tolConsultor: 5,         // diferença em pontos percentuais de markup
     exportFiltered: false,
     selection: new Set(),
@@ -982,7 +982,9 @@
       if (state.filterCostUpdated && !p.custoAtualizado) return false;
       if (state.filterZeroOnly && !(p.custo <= 0 || p.precoAtual <= 0)) return false;
       if (state.filterFonte.size && !state.filterFonte.has(p.fonteImpostos || "sem")) return false;
-      if (state.filterConsultor) {
+      if (state.filterConsultor === "sem" && p.markupConsultor > 0) return false;
+      if (state.filterConsultor === "com" && !(p.markupConsultor > 0)) return false;
+      if (state.filterConsultor === "acima" || state.filterConsultor === "abaixo") {
         const d = diffConsultorPP(p);
         if (d == null) return false;
         if (state.filterConsultor === "acima" && !(d >= state.tolConsultor)) return false;
@@ -1012,8 +1014,9 @@
     const a = document.getElementById("consultorAcimaBtn");
     const b = document.getElementById("consultorAbaixoBtn");
     if (!a || !b) return;
-    let nAcima = 0, nAbaixo = 0, nCom = 0;
+    let nAcima = 0, nAbaixo = 0, nCom = 0, nSem = 0;
     state.products.forEach(function (p) {
+      if (!(p.markupConsultor > 0)) nSem++;
       const d = diffConsultorPP(p);
       if (d == null) return;
       nCom++;
@@ -1025,6 +1028,9 @@
     b.innerHTML = "▼ Abaixo do consultor (−" + tol + " pts ou mais) · " + nAbaixo;
     a.style.cssText = state.filterConsultor === "acima" ? "background:var(--brand);color:#fff;border-color:var(--brand);" : "";
     b.style.cssText = state.filterConsultor === "abaixo" ? "background:var(--brand);color:#fff;border-color:var(--brand);" : "";
+    const sb = document.getElementById("consultorSemBtn"), cb = document.getElementById("consultorComBtn");
+    if (sb) { sb.innerHTML = "Sem markup do consultor · " + nSem; sb.style.cssText = state.filterConsultor === "sem" ? "background:var(--brand);color:#fff;border-color:var(--brand);" : ""; }
+    if (cb) { cb.innerHTML = "Só com markup do consultor · " + nCom; cb.style.cssText = state.filterConsultor === "com" ? "background:var(--brand);color:#fff;border-color:var(--brand);" : ""; }
     const clr = document.getElementById("consultorClearBtn");
     if (clr) clr.style.display = state.filterConsultor ? "" : "none";
     const msg = document.getElementById("consultorFilterMsg");
@@ -1194,6 +1200,8 @@
             '<button id="consultorAbaixoBtn" class="btn-ghost" title="Markup atual MENOR que o do consultor: o preço atual está abaixo do recomendado"></button>' +
             '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);">Diferença de ' +
               '<input id="tolConsultorInput" class="input num" type="number" min="0" step="0.5" value="' + state.tolConsultor + '" style="width:64px;" /> pontos</label>' +
+            '<button id="consultorSemBtn" class="btn-ghost" title="Produtos que não estão na planilha do consultor"></button>' +
+            '<button id="consultorComBtn" class="btn-ghost" title="Esconde os produtos que não estão na planilha do consultor"></button>' +
             '<button id="consultorClearBtn" class="btn-ghost" style="display:none;">Limpar filtro</button>' +
             '<span id="consultorFilterMsg" style="font-size:12.5px;color:var(--ink-soft);"></span>' +
           "</div>" +
@@ -1441,6 +1449,8 @@
     });
     document.getElementById("consultorAcimaBtn").addEventListener("click", function () { setConsultorFilter("acima"); });
     document.getElementById("consultorAbaixoBtn").addEventListener("click", function () { setConsultorFilter("abaixo"); });
+    document.getElementById("consultorSemBtn").addEventListener("click", function () { setConsultorFilter("sem"); });
+    document.getElementById("consultorComBtn").addEventListener("click", function () { setConsultorFilter("com"); });
     document.getElementById("consultorClearBtn").addEventListener("click", function () {
       state.filterConsultor = null; state.page = 0;
       renderConsultorFilterUI(); renderTable(); renderExportArea();
